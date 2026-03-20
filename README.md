@@ -59,7 +59,7 @@ pip install -r requirements.txt
 ```
 
 3. 配置API Key：
-编辑 `config.py` 文件，填入你的API Key：
+将 `config_template.py` 重命名为 `config.py`，然后编辑文件，填入你的API Key：
 - `QINIU_API_KEY`: 七牛云LLM
 - `KLING_IMAGE_KEY`: 可灵AI生图
 - `KLING_VIDEO_KEY`: Veo视频生成
@@ -86,17 +86,17 @@ python test_sb.py    # 测试分镜生成
 
 ```
 shadow-play-agent/
-├── config.py           # 配置文件
-├── prompts.py         # 提示词模板
-├── llm_client.py      # LLM分镜模块
-├── image_client.py    # 图片生成模块
-├── video_client.py    # 视频生成模块
-├── agent.py           # 主程序
-├── app.py             # Web界面
-├── storyboard.py      # 分镜工具
-├── test_image.py      # 图片测试脚本
-├── test_sb.py         # 分镜测试脚本
-└── output/            # 输出目录
+├── config_template.py  # 配置文件模板（需重命名为config.py）
+├── prompts.py          # 提示词模板
+├── llm_client.py       # LLM分镜模块
+├── image_client.py     # 图片生成模块
+├── video_client.py     # 视频生成模块
+├── agent.py            # 主程序
+├── app.py              # Web界面
+├── storyboard.py       # 分镜工具
+├── test_image.py       # 图片测试脚本
+├── test_sb.py          # 分镜测试脚本
+└── output/             # 输出目录
 ```
 
 ## 使用方法
