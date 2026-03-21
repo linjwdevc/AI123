@@ -44,10 +44,10 @@ SYSTEM_PROMPT = """你是一个专业的中国传统皮影戏编剧，擅长模�
 STORYBOARD_PROMPT = """请严格按照以下JSON格式生成分镜10个，只输出JSON：
 
 [
-  {"镜头": 1, "景别": "中景", "画面": "场景描述，角色的关节动作描述"},
-  {"镜头": 2, "景别": "中景", "画面": "角色动作，手臂/腿部在关节处弯曲的描述"},
+  {"镜头": 1, "景别": "中景", "画面": "paper-cut silhouette场景描述, paper-cut style角色描述, 关节动作描述, pure flat design"},
+  {"镜头": 2, "景别": "中景", "画面": "paper-cut art画面, flat 2D角色动作, 手臂腿部关节弯曲描述, no shadow, vintage muted tones"},
   ...
-  {"镜头": 10, "景别": "中景", "画面": "场景结尾"}
+  {"镜头": 10, "景别": "中景", "画面": "paper-cut style场景结尾, pure flat composition, soft muted colors"}
 ]
 
 【动作风格要求 - 核心】
@@ -56,9 +56,21 @@ STORYBOARD_PROMPT = """请严格按照以下JSON格式生成分镜10个，只输
 - 四肢延展而非变形
 - 示例："他的手臂在肘部弯曲成90度" "他的腿部在膝盖处弯曲站立"
 
+【画面描述风格要求 - 重要】
+画面描述必须同时包含：
+1. 动作描述（关节弯曲、肢体运动等）
+2. 英文风格引导词（在描述中加入以下关键词）：
+   - paper-cut silhouette（剪纸剪影）
+   - paper-cut style / paper-cut art（剪纸风格）
+   - pure flat design / flat 2D（纯平设计）
+   - no shadow / shadow-free（无阴影）
+   - vintage muted tones / retro palette（复古色调）
+   - flat composition（平面构图）
+
 要求：
 - 生成分镜10个，总时长约50秒
 - 画面描述要突出角色的关节弯曲动作
+- 画面描述必须包含英文风格引导词（paper-cut, flat, no shadow, vintage等）
 - 所有元素在同一视觉平面，无空间纵深
 - 色彩柔和复古风格
 - 保持角色一致性
@@ -112,11 +124,12 @@ SCENE_PROMPT = """请为以下场景生成皮影戏风格的描述。
 
 # ==================== 可灵AI生图提示词模板 (A9 - 中国古典绘画风格) ====================
 IMAGE_PROMPT_TEMPLATE = """flat 2D Chinese shadow puppet art, Chinese classical painting composition style,
-no perspective no depth no 3D, all elements on same visual plane,
+ABSOLUTELY NO SHADOWS, ABSOLUTELY NO GRADIENTS, ABSOLUTELY NO DEPTH PERCEPTION,
+all elements on same visual plane, pure 2D flat design,
 Dunhuang fresco or Chinese New Year painting flat layout,
-zero shading zero gradient, solid flat color fills,
+solid flat color fills with crisp edges, NO shading effects whatsoever,
 smooth pure white background, paper-cut silhouette style,
-vector art, minimal, equal scale figures, no spatial layering
+vector art, minimal, equal scale figures, no spatial layering, no 3D effects
 
 {subject_description}
 

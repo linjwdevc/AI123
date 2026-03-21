@@ -8,7 +8,39 @@ import time
 import os
 import base64
 import shutil
+from PIL import Image, ImageEnhance, ImageFilter
 from config import KLING_IMAGE_KEY, KLING_IMAGE_URL, OUTPUT_DIR, TEST_OUTPUT_DIR
+
+
+def remove_shadow(image_path: str) -> Image.Image:
+    """
+    后处理：去除阴影，增强剪纸风格效果
+
+    处理步骤：
+    1. 提高对比度 - 使颜色更鲜明
+    2. 提亮暗部 - 减少阴影效果
+    3. 锐化边缘 - 增强剪纸感
+    4. 降低饱和度 - 复古色调
+    """
+    img = Image.open(image_path).convert("RGB")
+
+    # 1. 提高对比度
+    enhancer = ImageEnhance.Contrast(img)
+    img = enhancer.enhance(1.4)
+
+    # 2. 提亮整体（减少阴影）
+    enhancer = ImageEnhance.Brightness(img)
+    img = enhancer.enhance(1.15)
+
+    # 3. 锐化边缘
+    img = img.filter(ImageFilter.SHARPEN)
+    img = img.filter(ImageFilter.EDGE_ENHANCE)
+
+    # 4. 轻微降低饱和度（复古色调）
+    enhancer = ImageEnhance.Color(img)
+    img = enhancer.enhance(0.9)
+
+    return img
 
 
 class ImageClient:
@@ -108,18 +140,58 @@ class ImageClient:
             return None
 
     def generate_shadow_puppet(self, subject: str, style: str = "shadow puppet") -> str:
-        """生成皮影戏风格的图片 - 中国古典绘画风格"""
-        prompt = f"""flat 2D Chinese shadow puppet art, Chinese classical painting composition style,
-no perspective no depth no 3D, all elements on same visual plane,
-Dunhuang fresco or Chinese New Year painting flat layout,
-zero shading zero gradient, solid flat color fills,
-smooth pure white background, paper-cut silhouette style,
-vector art, minimal, equal scale figures, no spatial layering
+        """生成皮影戏风格的图片 - 强化版（无阴影无渐变）"""
+        # 多次重复强调关键词
+        prompt = f"""paper-cut, paper-cut silhouette, paper-cut art, paper-cut style
+paper-cut, paper-cut silhouette, paper-cut art, paper-cut style
+ABSOLUTELY NO SHADOW, NO SHADOW, ZERO SHADOW, SHADOW-FREE
+ABSOLUTELY NO SHADOW, NO SHADOW, ZERO SHADOW, SHADOW-FREE
+ABSOLUTELY NO GRADIENT, NO GRADIENTS, GRADIENT-FREE, FLAT COLORS ONLY
+ABSOLUTELY NO GRADIENT, NO GRADIENTS, GRADIENT-FREE, FLAT COLORS ONLY
+pure flat design, pure flat design, pure flat design
+pure flat, flat 2D, flat 2D figures, flat composition
+NO DEPTH, NO 3D, NO SPACE, ALL ON SAME PLANE
+vintage colors, vintage muted tones, soft muted colors, retro palette
+vintage colors, vintage muted tones, soft muted colors, retro palette
+Chinese paper-cut animation, Calabash Brothers animation style
+Chinese paper-cut art, traditional Chinese flat art
+crisp edges, clean outlines, sharp edges, solid color blocks
 
 {subject}
-""".strip()
 
-        return self.generate_image(prompt)
+MUST BE FLAT - MUST BE SHADOW-FREE - MUST BE PAPER-CUT STYLE
+NO SHADOWS ALLOWED - NO GRADIENTS ALLOWED - NO DEPTH - PURE FLAT ONLY""".strip()
+
+        # 强化负面提示词：详细列出所有禁止项
+        negative_prompt = """shadow, shadows, shading, shading effects
+no shadow, no shadows, shadow-free, shadowless, unshaded
+3D, 2.5D, depth, perspective, spatial, space, dimension
+lighting, light, highlight, highlights, darkness, dim, bright
+soft shadow, hard shadow, drop shadow, rim light, cast shadow
+ambient light, volumetric light, ambient occlusion, light effects
+realistic lighting, natural lighting, dramatic lighting, studio lighting
+realistic, photographic, photographic quality, detailed
+CGI, render, 3D render, illustration 3D, 3D effect
+backlight, front light, side light, bottom light, top light
+outline shadow, edge shadow, form shadow, self shadow
+反射,倒影,光线,光效,明暗交界,高光,反光
+立体,阴影,渐变,写实,3D,光影,空间,纵深,透视"""
+
+        # 生成图片
+        raw_image_path = self.generate_image(prompt, negative_prompt)
+
+        if raw_image_path:
+            # 应用后处理去除阴影
+            print("应用后处理去除阴影...")
+            processed_img = remove_shadow(raw_image_path)
+
+            # 保存处理后的图片（覆盖原图）
+            processed_img.save(raw_image_path)
+            print("后处理完成")
+
+            return raw_image_path
+
+        return None
 
 
 def test_image():
