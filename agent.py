@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from llm_client import LLMClient
 from image_client import ImageClient
 from video_client import VideoClient
+from video_utils import merge_videos, check_ffmpeg
 from prompts import SYSTEM_PROMPT
 from config import OUTPUT_DIR
 
@@ -232,9 +233,33 @@ soft pastel colors, low saturation, elegant color harmony"""
         print(f"全流程完成! {time_str}")
         print(f"  图片: {success_images}/{total_scenes} 成功")
         print(f"  视频: {success_videos}/{success_images} 成功")
-        print(f"{'=' * 50}")
 
-        return result
+        # 合并视频
+        if success_videos > 0:
+            # 按分镜顺序排序视频
+            sorted_videos = sorted(result["videos"], key=lambda x: x["scene"])
+            video_paths = [v["path"] for v in sorted_videos if v.get("path")]
+
+            if video_paths and check_ffmpeg():
+                output_dir = (
+                    os.path.dirname(video_paths[0]) if video_paths else OUTPUT_DIR
+                )
+                merged_path = os.path.join(output_dir, f"final_{int(time.time())}.mp4")
+
+                print(f"\n{'=' * 50}")
+                print(f"正在合并 {len(video_paths)} 个视频...")
+
+                merged_result = merge_videos(video_paths, merged_path)
+
+                if merged_result:
+                    result["merged_video"] = merged_result
+                    print(f"  合并成功: {merged_result}")
+                else:
+                    print(f"  合并失败，保留独立视频文件")
+            elif not check_ffmpeg():
+                print(f"\n警告: 未检测到FFmpeg，无法合并视频")
+
+        print(f"{'=' * 50}")
 
         return result
 

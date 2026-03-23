@@ -8,7 +8,14 @@ import time
 import os
 import base64
 import json
-from config import KLING_IMAGE_KEY, OUTPUT_DIR, TEST_OUTPUT_DIR
+from config import (
+    KLING_IMAGE_KEY,
+    OUTPUT_DIR,
+    TEST_OUTPUT_DIR,
+    MAX_RETRIES,
+    REQUEST_TIMEOUT,
+    RETRY_DELAY,
+)
 
 
 class VideoClient:
@@ -28,18 +35,32 @@ class VideoClient:
         duration: int = 5,
         ratio: str = "16:9",
     ) -> str:
-        """
-        图生视频 - 使用Kling模型（七牛云）
+        """图生视频 - 带重试机制"""
+        last_error = None
 
-        Args:
-            image_path: 输入图片路径
-            prompt: 视频描述
-            duration: 视频时长，默认5秒
-            ratio: 宽高比，默认16:9
+        for attempt in range(MAX_RETRIES):
+            try:
+                result = self._generate_video_once(image_path, prompt, duration, ratio)
+                if result:
+                    return result
+                if attempt < MAX_RETRIES - 1:
+                    time.sleep(RETRY_DELAY)
+            except Exception as e:
+                last_error = e
+                print(f"视频生成失败 (尝试 {attempt + 1}/{MAX_RETRIES}): {e}")
+                if attempt < MAX_RETRIES - 1:
+                    time.sleep(RETRY_DELAY)
 
-        Returns:
-            生成视频的路径
-        """
+        print(f"视频生成最终失败: {last_error}")
+        return None
+
+    def _generate_video_once(
+        self,
+        image_path: str,
+        prompt: str = None,
+        duration: int = 5,
+        ratio: str = "16:9",
+    ) -> str:
         with open(image_path, "rb") as f:
             image_base64 = base64.b64encode(f.read()).decode()
 
@@ -92,7 +113,7 @@ pure paper-cut style, no shading, no shadows, no gradients"""
 
         try:
             response = requests.post(
-                api_url, headers=headers, json=payload, timeout=180
+                api_url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT
             )
             result = response.json()
 

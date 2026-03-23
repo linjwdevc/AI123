@@ -9,7 +9,15 @@ import os
 import base64
 import shutil
 from PIL import Image, ImageEnhance, ImageFilter
-from config import KLING_IMAGE_KEY, KLING_IMAGE_URL, OUTPUT_DIR, TEST_OUTPUT_DIR
+from config import (
+    KLING_IMAGE_KEY,
+    KLING_IMAGE_URL,
+    OUTPUT_DIR,
+    TEST_OUTPUT_DIR,
+    MAX_RETRIES,
+    REQUEST_TIMEOUT,
+    RETRY_DELAY,
+)
 
 
 def remove_shadow(image_path: str) -> Image.Image:
@@ -57,40 +65,51 @@ class ImageClient:
     def generate_image(
         self, prompt: str, negative_prompt: str = None, size: str = "1024*1024"
     ) -> str:
-        """生成图片"""
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
+        """生成图片 - 带重试机制"""
+        last_error = None
 
-        payload = {
-            "model": "kling-v1",
-            "prompt": prompt,
-            "negative_prompt": negative_prompt or "",
-            "image_size": size,
-        }
+        for attempt in range(MAX_RETRIES):
+            try:
+                headers = {
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                }
 
-        try:
-            response = requests.post(
-                self.api_url, headers=headers, json=payload, timeout=120
-            )
-            response.raise_for_status()
-            result = response.json()
+                payload = {
+                    "model": "kling-v1",
+                    "prompt": prompt,
+                    "negative_prompt": negative_prompt or "",
+                    "image_size": size,
+                }
 
-            task_id = result.get("task_id")
-            if not task_id:
-                print("响应结果:", result)
+                if attempt > 0:
+                    print(f"重试 {attempt + 1}/{MAX_RETRIES}...")
+
+                response = requests.post(
+                    self.api_url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT
+                )
+                response.raise_for_status()
+                result = response.json()
+
+                task_id = result.get("task_id")
+                if not task_id:
+                    print("响应结果:", result)
+                    return None
+
+                image_url = self._wait_for_result(task_id, headers)
+                if image_url:
+                    return self._download_image(image_url)
+
                 return None
 
-            image_url = self._wait_for_result(task_id, headers)
-            if image_url:
-                return self._download_image(image_url)
+            except Exception as e:
+                last_error = e
+                print(f"图片生成失败 (尝试 {attempt + 1}/{MAX_RETRIES}): {e}")
+                if attempt < MAX_RETRIES - 1:
+                    time.sleep(RETRY_DELAY)
 
-            return None
-
-        except Exception as e:
-            print(f"图片生成失败: {e}")
-            return None
+        print(f"图片生成最终失败: {last_error}")
+        return None
 
     def _wait_for_result(self, task_id: str, headers: dict, max_wait: int = 120) -> str:
         """等待任务完成"""
