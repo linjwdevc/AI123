@@ -29,7 +29,7 @@ class VideoClient:
         ratio: str = "16:9",
     ) -> str:
         """
-        图生视频 - 尝试多个API端点
+        图生视频 - 使用Kling模型（七牛云）
 
         Args:
             image_path: 输入图片路径
@@ -44,140 +44,143 @@ class VideoClient:
             image_base64 = base64.b64encode(f.read()).decode()
 
         if not prompt:
-            prompt = """2D flat animation, traditional Chinese shadow puppet (PI YING XI).
-Keep the original 2D silhouette style.
-Joint-based movement - arms bend at elbows, legs bend at knees.
-Gentle movement, rhythmic puppet-like animation.
-Pure paper-cut shadow puppet style, no 3D effects."""
+            prompt = """ABSOLUTELY NO SHADOW, ZERO SHADOW, SHADOW-FREE
+NO GRADIENTS, NO SHADING, FLAT COLORS ONLY
+pure flat 2D animation style, NO depth perception
+Chinese paper-cut silhouette, Chinese shadow puppet (PI YING XI)
+all elements on same visual plane, all elements FLAT
+Joint-based movement - arms bend at elbows, legs bend at knees
+Gentle rhythmic puppet-like animation, stop-motion style
+rich color palette with 5-8 DIVERSE HUES, MULTIPLE COLORS
+vibrant diverse hues, varied color scheme, colorful composition
+soft pastel tones, low saturation, muted elegant colors
+watercolor-inspired colors, gentle pastel palette, no bright neon
+COLORFUL SCENE - use many different colors - red blue green yellow purple orange
+elegant color harmony, varied color blocks, diverse color areas
+ABSOLUTELY FLAT - NO 3D EFFECTS - NO REALISTIC LIGHTING
+pure paper-cut style, no shading, no shadows, no gradients"""
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
 
-        print(f"Prompt: {prompt[:80]}...")
+        # 转换比例格式：16:9 -> 1280x720, 9:16 -> 720x1280
+        if ratio == "16:9":
+            size = "1280x720"
+        elif ratio == "9:16":
+            size = "720x1280"
+        else:
+            size = "1280x720"
 
-        # 尝试多个端点
-        endpoints = [
-            # 通用视频端点（可能支持kling）
-            {
-                "url": f"{self.base_url}/v1/kling/video/generations",
-                "payload": {
-                    "model": "kling-v1",
-                    "prompt": prompt,
-                    "image_base64": image_base64,
-                    "duration": duration,
-                    "aspect_ratio": ratio,
-                },
-            },
-            {
-                "url": f"{self.base_url}/v1/videos/generations",
-                "payload": {
-                    "model": "kling-v1",
-                    "prompt": prompt,
-                    "image_base64": image_base64,
-                    "duration": duration,
-                    "aspect_ratio": ratio,
-                },
-            },
-            # Veo端点（原有）
-            {
-                "url": f"{self.base_url}/v1/videos/generations",
-                "payload": {
-                    "prompt": prompt,
-                    "image": {
-                        "bytesBase64Encoded": image_base64,
-                        "mimeType": "image/png",
-                    },
-                    "parameters": {
-                        "generateAudio": True,
-                        "durationSeconds": duration,
-                        "sampleCount": 1,
-                        "aspectRatio": ratio,
-                    },
-                    "model": "veo-3.1-generate-preview",
-                },
-            },
-        ]
+        # Kling API格式（七牛云正确格式）
+        payload = {
+            "model": "kling-video-o1",
+            "prompt": prompt,
+            "image_list": [{"image": image_base64}],
+            "seconds": str(duration),
+            "size": size,
+            "mode": "std",
+        }
 
-        for i, endpoint in enumerate(endpoints):
-            print(f"\n尝试端点 {i + 1}/{len(endpoints)}: {endpoint['url']}")
-            try:
-                response = requests.post(
-                    endpoint["url"],
-                    headers=headers,
-                    json=endpoint["payload"],
-                    timeout=60,
-                )
-                result = response.json()
+        api_url = f"{self.base_url}/v1/videos"
 
-                if response.status_code == 400:
-                    error_msg = result.get("error", {}).get("message", str(result))
-                    print(f"  端点不支持: {error_msg[:100]}")
-                    continue
+        print(f"使用Kling模型生成视频...")
+        print(f"API URL: {api_url}")
+        print(f"Prompt: {prompt[:60]}...")
+        print(f"Size: {size}, Duration: {duration}s")
 
-                response.raise_for_status()
-                print(f"  成功! 响应: {json.dumps(result, ensure_ascii=False)[:200]}")
+        try:
+            response = requests.post(
+                api_url, headers=headers, json=payload, timeout=180
+            )
+            result = response.json()
 
-                task_id = result.get("id") or result.get("task_id")
-                if not task_id:
-                    print(f"  未获取到任务ID")
-                    continue
+            print(f"响应: {json.dumps(result, ensure_ascii=False)[:300]}")
 
-                print(f"  任务ID: {task_id}")
-                video_url = self._wait_for_result(task_id, headers, endpoint["url"])
-                if video_url:
-                    return self._download_video(video_url)
+            if response.status_code != 200:
+                error_msg = result.get("error", {}).get("message", str(result))
+                print(f"API错误: {error_msg}")
+                return None
 
-            except requests.exceptions.HTTPError as e:
-                print(f"  HTTP错误: {e}")
-            except Exception as e:
-                print(f"  请求失败: {e}")
+            task_id = result.get("id")
+            if not task_id:
+                print("未获取到任务ID")
+                return None
 
-        print("\n所有端点均失败")
-        return None
+            print(f"任务ID: {task_id}")
+            video_url = self._wait_for_result(task_id, headers)
+            if video_url:
+                return self._download_video(video_url)
 
-    def _wait_for_result(
-        self, task_id: str, headers: dict, base_url: str, max_wait: int = 300
-    ) -> str:
-        """等待任务完成"""
-        status_url = f"{base_url.rsplit('/v1/', 1)[0]}/v1/videos/generations/{task_id}"
+            return None
 
-        for _ in range(max_wait // 10):
+        except requests.exceptions.HTTPError as e:
+            print(f"HTTP错误: {e}")
+            if hasattr(e, "response") and e.response:
+                print(f"响应内容: {e.response.text}")
+            return None
+        except Exception as e:
+            print(f"视频生成失败: {e}")
+            return None
+
+    def _wait_for_result(self, task_id: str, headers: dict, max_wait: int = 600) -> str:
+        """等待Kling视频任务完成"""
+        status_url = f"{self.base_url}/v1/videos/{task_id}"
+
+        print(f"查询状态: {status_url}")
+
+        for i in range(max_wait // 10):
             try:
                 response = requests.get(status_url, headers=headers, timeout=30)
                 result = response.json()
 
                 status = result.get("status")
+                print(f"[{i + 1}] 状态: {status}")
 
-                if status == "Completed" or status == "SUCCESS":
-                    # 尝试多种可能的返回格式
-                    if "data" in result and "videos" in result["data"]:
-                        return result["data"]["videos"][0]["url"]
-                    elif "video" in result:
-                        return result["video"].get("url") or result["video"].get(
-                            "data", {}
-                        ).get("url")
-                    elif "url" in result:
-                        return result["url"]
-
-                elif status == "Failed" or status == "ERROR":
-                    print(f"  任务失败: {result.get('message', result)}")
+                if status == "completed":
+                    # Kling成功响应格式
+                    videos = result.get("task_result", {}).get("videos", [])
+                    if videos and len(videos) > 0:
+                        video_url = videos[0].get("url")
+                        if video_url:
+                            print(f"视频生成成功!")
+                            return video_url
+                    print(f"未找到视频URL: {result}")
                     return None
 
-                print(f"  状态: {status}, 等待中...")
-                time.sleep(10)
+                elif status == "failed":
+                    error_msg = result.get("error", {}).get("message", str(result))
+                    print(f"任务失败: {error_msg}")
+                    return None
+
+                elif status in [
+                    "initializing",
+                    "queued",
+                    "in_progress",
+                    "downloading",
+                    "uploading",
+                ]:
+                    print(f"  等待中...")
+                    time.sleep(10)
+                else:
+                    print(f"  未知状态: {status}, 等待中...")
+                    time.sleep(10)
+
             except Exception as e:
                 print(f"  查询状态失败: {e}")
                 time.sleep(10)
 
-        print("  等待超时")
+        print("等待超时")
         return None
 
     def _download_video(self, url: str) -> str:
-        """下载视频到本地"""
+        """下载视频到本地（带认证）"""
         try:
-            response = requests.get(url, timeout=300)
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+            }
+            response = requests.get(url, headers=headers, timeout=300)
             response.raise_for_status()
 
             filename = f"{self.output_dir}/video_{int(time.time() * 1000)}.mp4"

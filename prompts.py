@@ -43,12 +43,30 @@ SYSTEM_PROMPT = """你是一个专业的中国传统皮影戏编剧，擅长模�
 # ==================== 分镜生成提示词 ====================
 STORYBOARD_PROMPT = """请严格按照以下JSON格式生成分镜10个，只输出JSON：
 
-[
-  {"镜头": 1, "景别": "中景", "画面": "paper-cut silhouette场景描述, paper-cut style角色描述, 关节动作描述, pure flat design"},
-  {"镜头": 2, "景别": "中景", "画面": "paper-cut art画面, flat 2D角色动作, 手臂腿部关节弯曲描述, no shadow, vintage muted tones"},
-  ...
-  {"镜头": 10, "景别": "中景", "画面": "paper-cut style场景结尾, pure flat composition, soft muted colors"}
-]
+{
+  "角色": {
+    "名字": "角色名称",
+    "外观描述": "详细的角色外观描述，用于生成一致的角色形象（包含服装、发型、肤色、体型特征等），必须使用英文描述"
+  },
+  "分镜": [
+    {"镜头": 1, "景别": "中景", "画面": "paper-cut silhouette场景描述，包含角色外观（与角色定义一致），关节动作描述，pure flat design"},
+    {"镜头": 2, "景别": "中景", "画面": "paper-cut art画面，角色外观（与角色定义一致），flat 2D角色动作，手臂腿部关节弯曲描述, no shadow, vintage muted tones"},
+    ...
+    {"镜头": 10, "景别": "中景", "画面": "paper-cut style场景结尾，角色外观（与角色定义一致），pure flat composition, soft muted colors"}
+  ]
+}
+
+【角色外观要求 - 非常重要】
+- 必须详细描述角色外观，包含：发型、头饰、服装颜色、鞋子，配饰、体型特征等
+- 外观描述必须使用英文，用于AI生图
+- 外观描述必须包含以下平面风格关键词：
+  - flat 2D design（纯平设计）
+  - paper-cut animation style（剪纸动画风格）
+  - no shading, no 3D effects（无阴影无3D效果）
+  - solid color fills（纯色填充）
+  - bold black outlines（粗黑轮廓线）
+  - Chinese shadow puppet art（中国皮影艺术风格）
+- 所有分镜中的角色外观必须与角色定义完全一致
 
 【动作风格要求 - 核心】
 - 肢体只能在关节处弯曲：手臂肘部、腿部膝盖
@@ -71,14 +89,14 @@ STORYBOARD_PROMPT = """请严格按照以下JSON格式生成分镜10个，只输
 - 生成分镜10个，总时长约50秒
 - 画面描述要突出角色的关节弯曲动作
 - 画面描述必须包含英文风格引导词（paper-cut, flat, no shadow, vintage等）
+- 画面描述必须引用角色外观，确保角色一致性
 - 所有元素在同一视觉平面，无空间纵深
 - 色彩柔和复古风格
-- 保持角色一致性
 
 故事内容：
 %s
 
-只输出JSON数组："""
+只输出JSON："""
 
 # ==================== 角色生成提示词 ====================
 CHARACTER_PROMPT = """请为以下角色生成皮影戏风格的描述。
@@ -131,6 +149,11 @@ solid flat color fills with crisp edges, NO shading effects whatsoever,
 smooth pure white background, paper-cut silhouette style,
 vector art, minimal, equal scale figures, no spatial layering, no 3D effects
 
+rich color palette with 5-8 diverse hues, varied color scheme,
+soft pastel colors, low saturation, muted elegant tones,
+watercolor-inspired muted colors, gentle pastel palette,
+no bright neon, no oversaturated, elegant color harmony
+
 {subject_description}
 
 【动作风格要求】
@@ -156,6 +179,11 @@ flat 2D Chinese shadow puppet animation, Chinese classical painting composition,
 no perspective no depth, all elements on same visual plane,
 Dunhuang fresco style, zero shading, vector art aesthetic,
 minimal design, smooth white screen background.
+
+rich color palette with diverse hues, varied color scheme,
+soft pastel tones, low saturation, muted elegant colors,
+watercolor-inspired colors, gentle pastel palette, no bright neon,
+vibrant but muted, elegant color harmony, no oversaturated.
 """.strip()
 
 # ==================== 测试提示词 ====================
