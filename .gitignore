@@ -44,5 +44,4 @@ output/
 *.log
 
 # Local config (contains real API keys - DO NOT COMMIT)
-config.py
 config_local.py
